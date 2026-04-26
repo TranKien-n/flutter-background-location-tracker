@@ -1,3 +1,4 @@
+/// Single GPS fix for the log: WGS84 coords, Geolocator [accuracy]/[speed], device [timestamp], [isMocked] if faked.
 class LocationRecord {
   final double latitude;
   final double longitude;

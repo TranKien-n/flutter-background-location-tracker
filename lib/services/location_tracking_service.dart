@@ -20,12 +20,13 @@ class LocationTrackingService {
   }) async {
     final settings = const LocationSettings(
       accuracy: LocationAccuracy.high,
-      // Emulator/testing friendly: emit even on tiny changes.
+      // 0 m: don't suppress fixes when idle or on emulator; larger values hide most updates.
       distanceFilter: 0,
     );
 
     await stopTracking();
 
+    // Push-based: OS sends each new/refined position; we filter duplicates only at save time.
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: settings,
     ).listen((position) async {

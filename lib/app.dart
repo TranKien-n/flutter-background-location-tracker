@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 
+/// App shell: Material 3 theme only; tracking and permissions live in [HomeScreen].
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 

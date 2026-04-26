@@ -9,8 +9,7 @@ import '../models/location_record.dart';
 class LocationStorageService {
   static const String _recordsKey = 'location_records';
 
-  // Treat updates as duplicates if they are effectively the same point in time/space.
-  // This prevents log spam from rapid stream emissions or multiple connected engines.
+  // Dedupe window: same spot again within seconds shouldn't spam the log (stream can fire very often).
   static const int _dedupeWindowSeconds = 60;
   static const double _dedupeDistanceMeters = 5.0;
   static const int _dedupeMaxRecentToCheck = 8;
@@ -42,7 +41,7 @@ class LocationStorageService {
 
     final recent = records.take(_dedupeMaxRecentToCheck);
     for (final existing in recent) {
-      // Strongest signal: same timestamp (or within 1s) and extremely close coords.
+      // Same instant + almost same point, or same place inside the window—skip saving again.
       final timeDifferenceSeconds =
           existing.timestamp.difference(record.timestamp).abs().inSeconds;
 
@@ -57,7 +56,6 @@ class LocationStorageService {
         return true;
       }
 
-      // General de-dupe: essentially same place within a short time window.
       if (timeDifferenceSeconds <= _dedupeWindowSeconds &&
           distance <= _dedupeDistanceMeters) {
         return true;
@@ -103,7 +101,7 @@ class LocationStorageService {
   Future<List<LocationRecord>> getRecords() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // This forces the UI isolate to read the latest saved values.
+    // Reload from disk so this isolate sees writes that happened in the background worker.
     await prefs.reload();
 
     final rawRecords = prefs.getString(_recordsKey);

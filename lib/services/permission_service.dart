@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+/// Ask when-in-use before always—Android 10+ expects that order for background/“always” access.
 class PermissionService {
   Future<bool> isLocationServiceEnabled() {
     return Geolocator.isLocationServiceEnabled();
@@ -21,6 +22,7 @@ class PermissionService {
   }
 
   Future<PermissionStatus> requestBackgroundLocation() {
+    // Typically shown after when-in-use is granted; user may still need to pick “Allow all the time”.
     return Permission.locationAlways.request();
   }
 

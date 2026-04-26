@@ -43,6 +43,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _loadRecords();
     _loadPermissionStatus();
 
+    // Background isolate already persisted; this is just a nudge to re-read storage for the list.
     _serviceSubscription = FlutterBackgroundService()
         .on('locationUpdate')
         .listen((event) async {
@@ -54,12 +55,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await _loadRecords();
     });
     WidgetsBinding.instance.addObserver(this);
+    // Native service can outlive a hot restart or disagree with local state—sync once we're mounted.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncTrackingFromService();
     });
   }
 
   Future<void> _syncTrackingFromService() async {
+    // Keeps the status card honest if the OS restarted the process or dev workflow left a stale flag.
     final running = await BackgroundServiceManager.isRunning();
     if (!mounted) return;
     setState(() {
@@ -152,6 +155,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // User may have flipped location/notifications in Settings; refresh everything visible.
       dev.log('app resumed -> reload records/permissions', name: 'HomeScreen');
       _syncTrackingFromService();
       _loadRecords();

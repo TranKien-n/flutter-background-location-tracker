@@ -11,6 +11,7 @@ class BackgroundServiceManager {
   static final FlutterBackgroundService _service = FlutterBackgroundService();
 
   static Future<void> initialize() async {
+    // Android needs a foreground service (with a visible notification) for reliable ongoing location.
     await _service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
@@ -52,8 +53,10 @@ class BackgroundServiceManager {
   }
 }
 
+// Keeps this symbol when tree-shaking; the native side starts it outside the main isolate.
 @pragma('vm:entry-point')
 Future<void> onStart(ServiceInstance service) async {
+  // Background isolate: same plugins as the UI, but needs its own binding init first.
   WidgetsFlutterBinding.ensureInitialized();
   dev.log('background service onStart()', name: 'BackgroundServiceManager');
 
