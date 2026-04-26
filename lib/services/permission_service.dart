@@ -24,6 +24,10 @@ class PermissionService {
     return Permission.locationAlways.request();
   }
 
+  Future<PermissionStatus> notificationStatus() {
+    return Permission.notification.status;
+  }
+
   Future<PermissionStatus> requestNotificationPermission() {
     return Permission.notification.request();
   }

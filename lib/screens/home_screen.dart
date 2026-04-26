@@ -10,6 +10,9 @@ import '../models/location_record.dart';
 import '../services/location_storage_service.dart';
 import '../services/permission_service.dart';
 import '../services/background_service_manager.dart';
+import '../widgets/location_log_panel.dart';
+import '../widgets/tracking_controls.dart';
+import '../widgets/tracking_status_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,8 +31,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   PermissionStatus? _foregroundPermission;
   PermissionStatus? _backgroundPermission;
+  PermissionStatus? _notificationPermission;
 
   List<LocationRecord> _records = [];
+  bool _initialRecordsLoaded = false;
+  DateTime? _lastListUpdated;
 
   @override
   void initState() {
@@ -45,11 +51,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         name: 'HomeScreen',
         error: event,
       );
-      // Every update is already saved by the background isolate.
-      // Reload to reflect saved records.
       await _loadRecords();
     });
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncTrackingFromService();
+    });
+  }
+
+  Future<void> _syncTrackingFromService() async {
+    final running = await BackgroundServiceManager.isRunning();
+    if (!mounted) return;
+    setState(() {
+      _isTracking = running;
+    });
   }
 
   Future<void> _loadRecords() async {
@@ -60,6 +75,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     setState(() {
       _records = records;
+      _initialRecordsLoaded = true;
+      _lastListUpdated = DateTime.now();
     });
 
     dev.log(
@@ -72,6 +89,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final serviceEnabled = await _permissionService.isLocationServiceEnabled();
     final foreground = await _permissionService.foregroundStatus();
     final background = await _permissionService.backgroundStatus();
+    final notification = await _permissionService.notificationStatus();
 
     if (!mounted) return;
 
@@ -79,6 +97,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _locationServiceEnabled = serviceEnabled;
       _foregroundPermission = foreground;
       _backgroundPermission = background;
+      _notificationPermission = notification;
     });
   }
 
@@ -94,12 +113,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await _loadRecords();
   }
 
+  bool get _canStartTracking {
+    return _locationServiceEnabled &&
+        _foregroundPermission != null &&
+        _foregroundPermission!.isGranted;
+  }
+
   Future<void> _startTracking() async {
     await _loadPermissionStatus();
 
-    if (!_locationServiceEnabled ||
-        _foregroundPermission == null ||
-        !_foregroundPermission!.isGranted) {
+    if (!_canStartTracking) {
       return;
     }
 
@@ -126,16 +149,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await _loadRecords();
   }
 
-  String _permissionLabel(PermissionStatus? status) {
-    if (status == null) return 'checking...';
-    return status.name;
-  }
-
-  // Stop tracking when the screen is disposed
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       dev.log('app resumed -> reload records/permissions', name: 'HomeScreen');
+      _syncTrackingFromService();
       _loadRecords();
       _loadPermissionStatus();
     }
@@ -150,99 +168,69 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final statusText = _isTracking ? 'Tracking active' : 'Tracking stopped';
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Background Location'),
+        title: const Text('Location tracker'),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await _loadRecords();
-          await _loadPermissionStatus();
+          await Future.wait([
+            _loadRecords(),
+            _loadPermissionStatus(),
+          ]);
         },
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      statusText,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Location service: '
-                      '${_locationServiceEnabled ? "enabled" : "disabled"}',
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Foreground permission: '
-                      '${_permissionLabel(_foregroundPermission)}',
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Background permission: '
-                      '${_permissionLabel(_backgroundPermission)}',
-                    ),
-                  ],
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              sliver: SliverToBoxAdapter(
+                child: TrackingStatusCard(
+                  isTracking: _isTracking,
+                  locationServiceEnabled: _locationServiceEnabled,
+                  foregroundPermission: _foregroundPermission,
+                  backgroundPermission: _backgroundPermission,
+                  notificationPermission: _notificationPermission,
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: _requestPermissions,
-              child: const Text('Request Location Permissions'),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _isTracking ? null : _startTracking,
-                    child: const Text('Start Tracking'),
-                  ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+              sliver: SliverToBoxAdapter(
+                child: TrackingControls(
+                  isTracking: _isTracking,
+                  canStart: _canStartTracking,
+                  hasRecords: _records.isNotEmpty,
+                  onRequestPermissions: _requestPermissions,
+                  onStart: _startTracking,
+                  onStop: _stopTracking,
+                  onClear: _clearRecords,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _isTracking ? _stopTracking : null,
-                    child: const Text('Stop'),
-                  ),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: _records.isEmpty ? null : _clearRecords,
-              child: const Text('Clear Saved Logs'),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Saved Location Updates',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            if (_records.isEmpty)
-              const Text('No location updates saved yet.')
-            else
-              ..._records.map(
-                (record) => Card(
-                  child: ListTile(
-                    title: Text(
-                      '${record.latitude.toStringAsFixed(6)}, '
-                      '${record.longitude.toStringAsFixed(6)}',
-                    ),
-                    subtitle: Text(
-                      'Accuracy: ${record.accuracy.toStringAsFixed(1)}m',
-                    ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 28, 16, 8),
+              sliver: SliverToBoxAdapter(
+                child: Text(
+                  'Location history',
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+              sliver: SliverToBoxAdapter(
+                child: LocationLogPanel(
+                  records: _records,
+                  initialLoadComplete: _initialRecordsLoaded,
+                  lastUpdated: _lastListUpdated,
+                ),
+              ),
+            ),
           ],
         ),
       ),
