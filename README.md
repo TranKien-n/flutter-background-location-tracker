@@ -10,11 +10,16 @@ The app lets the user grant location and (on Android) notification permissions, 
 
 ---
 
-## 📸 Screenshots
+## 📸 App Screenshots
 
 <p align="center">
-  <img src="screenshots/main.png" width="260"/>
-  <img src="screenshots/background.png" width="260"/>
+  <img src="screenshots/main.png" width="240"/><br/>
+  <em>Main tracking dashboard</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/background.png" width="240"/><br/>
+  <em>Background tracking with foreground service notification</em>
 </p>
 
 ---
