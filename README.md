@@ -12,11 +12,10 @@ The app lets the user grant location and (on Android) notification permissions, 
 
 ## 📸 Screenshots
 
-### Main Screen/Tracking Screen
-![Main Screen/Tracking Screen](screenshots/main.png)
-
-### Background Tracking
-![Background Tracking](screenshots/background.png)
+<p align="center">
+  <img src="screenshots/main.png" width="260"/>
+  <img src="screenshots/background.png" width="260"/>
+</p>
 
 ---
 
