@@ -66,12 +66,12 @@ lib/
 ## Key Services & Components
 
 | Component | Responsibility |
-|-----------|----------------|
-| **`BackgroundServiceManager`** | Configures `flutter_background_service` (Android foreground mode, notification IDs/text; iOS `autoStart: false`). Exposes `start` / `stop`, stops stale instances on init, hosts `@pragma('vm:entry-point')` `onStart` where the isolate binds plugins and runs tracking. |
-| **`LocationTrackingService`** | Subscribes to `Geolocator.getPositionStream` with high accuracy and `distanceFilter: 0`, maps to `LocationRecord`, saves via storage, forwards to callback (for UI events). |
-| **`LocationStorageService`** | Loads/saves JSON under a single key; **`reload()`** before reads so the UI sees writes from another isolate; duplicate filtering; keeps newest 100 entries. |
-| **`PermissionService`** | Wraps `Geolocator.isLocationServiceEnabled`, `Permission.locationWhenInUse` / `locationAlways`, and `Permission.notification`. |
-| **`HomeScreen`** | Permission UX, start/stop, listens to `locationUpdate`, refreshes on resume / pull-to-refresh. |
+|---|---|
+| `BackgroundServiceManager` | Configures `flutter_background_service`, manages start/stop, and hosts the background entrypoint. |
+| `LocationTrackingService` | Subscribes to `Geolocator.getPositionStream`, maps positions to records, and forwards updates. |
+| `LocationStorageService` | Saves/loads records, reloads `SharedPreferences`, deduplicates, and keeps the newest 100 entries. |
+| `PermissionService` | Handles location service checks and location/notification permissions. |
+| `HomeScreen` | Provides permission UX, tracking controls, event listening, and log display. |
 
 ---
 
